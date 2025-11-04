@@ -8,9 +8,8 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(),
     install_requires=[
-        "requests>=2.20.0",
         "numpy",
-        "pandas==1.5.0",
+        "pandas",
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
