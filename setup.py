@@ -6,7 +6,8 @@ setup(
     description="Foundation model for species-specific biological data.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    packages=find_packages(),
+    packages=find_packages(where='src'),  # Find packages within the 'src' directory
+    package_dir={'': 'src'},  # Map the root package to the 'src' directory
     install_requires=[
         "numpy",
         "pandas",
