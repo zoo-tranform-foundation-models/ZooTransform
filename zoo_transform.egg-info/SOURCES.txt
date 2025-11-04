@@ -1,7 +1,0 @@
-README.md
-setup.py
-zoo_transform.egg-info/PKG-INFO
-zoo_transform.egg-info/SOURCES.txt
-zoo_transform.egg-info/dependency_links.txt
-zoo_transform.egg-info/requires.txt
-zoo_transform.egg-info/top_level.txt
