@@ -62,16 +62,18 @@ def download_gym_data(download_path: str = "../ProteinGym_DMS_data", download: b
         data = pd.concat(dfs, ignore_index=True)
         
         print(f"✓ Loaded {len(dfs)} files with {len(data):,} total rows")
+    return data[['DMS_score', 'mutated_sequence']]
 
-def clean_gym_data(data: pd.DataFrame):
-    # Make column names consistent and easier to work with
-    df = data.rename(columns={
-        'DMS_score': 'score',
-        'mutant': 'mutation',
-        'mutated_sequence': 'mut_seq',
-        'DMS_score_bin': 'score_bin',
-        'DMS_bin_score': 'score_bin_float'
-    })
+# def clean_gym_data(data: pd.DataFrame):
+#     # Make column names consistent and easier to work with
+#     df = data.rename(columns={
+#         'DMS_score': 'score',
+#         'mutant': 'mutation',
+#         'mutated_sequence': 'mut_seq',
+#         'DMS_score_bin': 'score_bin',
+#         'DMS_bin_score': 'score_bin_float'
+#     })
 
-    print("✓ Column names standardized")
-    print(f"New columns: {list(df.columns)}")
+#     print("✓ Column names standardized")
+#     print(f"New columns: {list(df.columns)}")
+
