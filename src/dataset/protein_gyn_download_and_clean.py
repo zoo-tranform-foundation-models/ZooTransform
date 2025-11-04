@@ -8,6 +8,11 @@ def download_gym_data(download_path: str = "../ProteinGym_DMS_data", download: b
     Download and extract ProteinGym DMS substitution dataset.
     Please uncomment and run the download commands if data is not present.
     """    
+    os.makedirs(download_path, exist_ok=True)
+    if not approved_ids:
+        with open('src/dataset/GYM_Ids.txt', 'r') as file:
+            approved_ids = file.read().splitlines()
+            approved_ids = [id.strip() + '.csv' for id in approved_ids]
     url = "https://marks.hms.harvard.edu/proteingym/ProteinGym_v1.3/DMS_ProteinGym_substitutions.zip"
     zip_path = os.path.join(download_path, "DMS_ProteinGym_substitutions.zip")
     extract_dir = os.path.join(download_path, "DMS_ProteinGym_substitutions")
