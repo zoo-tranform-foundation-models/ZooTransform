@@ -30,7 +30,29 @@ print("✓ All libraries imported successfully!")
 class SpeciesAwareESM2:
     """
     Wrapper around ESM2 model to handle species-specific tokens.
+    Generates embeddings for protein sequences with species context.
+
+    Input:
+    - model_name: Name of the pretrained model; default is "facebook/esm2_t6_8M_UR50D"
+    - device: Computation device (CPU or GPU); default is auto-detected
+    - species_list: List of species names to create special tokens for
+    - max_length: Maximum sequence length for tokenization; default is 1024
+
+    Attributes:
+    - model: Pretrained ESM2 model
+    - tokenizer: Corresponding tokenizer with added species tokens
+    - species_tokens: List of special tokens for each species
+    - device: Computation device (CPU or GPU)
+    - max_length: Maximum sequence length for tokenization
+
+    Methods:
+    - prepare_inputs(species, sequence): Prepares tokenized inputs with species token
+    - embed(species, sequence): Generates embeddings for a given (species, sequence) pair
+    - forward(species_batch, sequence_batch): Forward pass for a batch of (species, sequence) pairs
+    - visualize_special_tokens(): Visualizes the special tokens in the tokenizer vocabulary
+
     """
+
 
     def __init__(self, model_name="facebook/esm2_t6_8M_UR50D", device=None, species_list=None, max_length=1024):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -96,6 +118,7 @@ class SpeciesAwareESM2:
     def embed(self, species, sequence):
         """
         Generate embeddings for a given (species, sequence) pair.
+        Returns the last hidden state from the model.
         """
         inputs = self.prepare_inputs(species, sequence)
         outputs = self.model(**inputs)
@@ -104,6 +127,8 @@ class SpeciesAwareESM2:
     def forward(self, species_batch, sequence_batch):
         """
         Forward pass for a batch of (species, sequence) pairs.
+        species_batch: list of species names
+        sequence_batch: list of sequences
         """
         texts = [
             self.species_to_token[s] + " " + seq
