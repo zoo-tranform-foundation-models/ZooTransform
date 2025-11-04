@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="zoo_transform",
+    name="zootransform",
     version="0.1.0",
     description="Foundation model for species-specific biological data.",
     long_description=open("README.md").read(),

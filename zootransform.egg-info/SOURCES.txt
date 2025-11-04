@@ -1,0 +1,7 @@
+README.md
+setup.py
+zootransform.egg-info/PKG-INFO
+zootransform.egg-info/SOURCES.txt
+zootransform.egg-info/dependency_links.txt
+zootransform.egg-info/requires.txt
+zootransform.egg-info/top_level.txt
