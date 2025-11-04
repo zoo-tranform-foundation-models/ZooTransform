@@ -18,21 +18,15 @@ def constrain_species_names(df: pd.DataFrame, n_top=10):
         column matches one of the selected species names.
     """
 
-    d = ['Haemophilus aegyptius',
-    'Chlorobaculum tepidum',
-    'Thermotoga maritima',
-    'Influenza A virus',
-    'MTH3_HAEAE_RockahShmuel_2015',
-    'BCHB_CHLTE_Tsuboyama_2023_2KRU',
-    'A0A2Z5U3Z0_9INFA_Doud_2016',
-    'C6KNH7_9INFA_Lee_2018',
-    'TRPC_THEMA_Chan_2017']
-    
     names_common = list(df['species'].value_counts().index[:n_top])
 
     names_funky = ['Rhodotorula toruloides',
                    'Staphylococcus aureus',
                    'Saccharolobus solfataricus',
+                   'Haemophilus aegyptius',
+                   'Chlorobaculum tepidum',
+                   'Thermotoga maritima',
+                   'Influenza A',
                    ]
     names_funky_but_missing = ['Mesorhizobium opportunistum']
 
