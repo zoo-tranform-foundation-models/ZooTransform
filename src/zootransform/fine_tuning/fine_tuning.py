@@ -171,7 +171,7 @@ class LoraFinetunerMLM:
         self.mlm_probability = mlm_probability
 
         if target_modules is None:
-            target_modules = ["attention.self.key", "attention.self.value"]
+            target_modules = ["k_proj", "q_proj", "v_proj", "embed_tokens"]
 
         # Wrap base model with LoRA
         lora_cfg = LoraConfig(
@@ -180,7 +180,7 @@ class LoraFinetunerMLM:
             target_modules=target_modules,
             lora_dropout=dropout,
             bias="none",
-            task_type="FEATURE_EXTRACTION" #TODO - specify MLM task type
+            #task_type=TaskType.TOKEN_CLS #TODO - specify MLM task type
         )
         self.model = get_peft_model(base_model.model, lora_cfg).to(self.device)
 
