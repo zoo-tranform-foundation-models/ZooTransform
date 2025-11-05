@@ -66,8 +66,8 @@ class SpeciesAwareESM2:
         self.max_length = max_length
 
         print(f"Loading model: {model_name}")
-        #self.model = AutoModel.from_pretrained(model_name).to(self.device)
-        self.model = AutoModelForMaskedLM.from_pretrained(model_name).to(self.device)
+        self.model = AutoModel.from_pretrained(model_name).to(self.device)
+        # self.model = AutoModelForMaskedLM.from_pretrained(model_name).to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
         # Default species tokens if not provided
