@@ -3,7 +3,7 @@ import os
 import glob
 import pandas as pd
 
-def download_gym_data(download_path: str = "src/dataset/ProteinGym_DMS_data"):
+def download_gym_data(download_path: str = "src/zootransform/dataset/ProteinGym_DMS_data"):
     """
     Download and extract ProteinGym DMS substitution dataset.
     Please uncomment and run the download commands if data is not present.
@@ -29,14 +29,11 @@ def download_gym_data(download_path: str = "src/dataset/ProteinGym_DMS_data"):
     if os.path.exists(zip_path):
         os.remove(zip_path)
 
-    # Check if data was downloaded successfully (should be in parent directory of notebook)
-    # data_dir = os.path.join(download_path, "DMS_ProteinGym_substitutions")
-
-def get_gym_data(data_dir='src/dataset/ProteinGym_DMS_data/DMS_ProteinGym_substitutions', approved_ids: list = []):
+def get_gym_data(data_dir='src/zootransform/dataset/ProteinGym_DMS_data/DMS_ProteinGym_substitutions', approved_ids: list = []):
 
     data_path = os.path.join(data_dir, "*.csv")
     if not approved_ids:
-        with open('src/dataset/GYM_Ids.txt', 'r') as file:
+        with open('src/zootransform/dataset/GYM_Ids.txt', 'r') as file:
             approved_ids = file.read().splitlines()
             approved_ids = [id.strip() + '.csv' for id in approved_ids]
     # Load all CSVs into a list of dataframes
@@ -56,13 +53,22 @@ def get_gym_data(data_dir='src/dataset/ProteinGym_DMS_data/DMS_ProteinGym_substi
             count += 1
             df = pd.read_csv(f)
             df["source_file"] = f.split("/")[-1].replace(".csv", "")
+                        # Split by underscore
+            split_cols = df['source_file'].str.split('_', expand=True)
+
+            # Assign new columns:
+            df['protein'] = split_cols[0]
+            df['species'] = split_cols[1] + '_' + split_cols[2]
             dfs.append(df)
         
         # Combine into a single dataframe
         data = pd.concat(dfs, ignore_index=True)
         
         print(f"✓ Loaded {len(dfs)} files with {len(data):,} total rows")
-    return data[['DMS_score', 'mutated_sequence']]
+    return data[['DMS_score', 'mutated_sequence', 'protein', 'species']]
+
+data = get_gym_data()
+data.head()
 
 # def clean_gym_data(data: pd.DataFrame):
 #     # Make column names consistent and easier to work with
