@@ -98,7 +98,7 @@ class SpeciesAwareESM2:
 
         # Resize embeddings if tokens were added
         if num_added > 0:
-            self.model.resize_token_embeddings(len(self.tokenizer), mean_resizing=True)
+            self.model.resize_token_embeddings(len(self.tokenizer))
             print(f"Resized model embeddings to {len(self.tokenizer)} tokens")
 
             # Ensure lm_head bias is also resized
