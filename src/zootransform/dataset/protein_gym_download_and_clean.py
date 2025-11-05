@@ -40,7 +40,6 @@ def get_gym_data(data_dir='src/zootransform/dataset/ProteinGym_DMS_data/DMS_Prot
     print("Loading CSV files...")
     dfs = []
     csv_files = glob.glob(data_path)
-    print(csv_files)
     if not csv_files:
         print(f"⚠ No CSV files found at path: {data_path}")
         print("  Please make sure the data has been downloaded first (run Step 1 cell above).")
@@ -66,9 +65,6 @@ def get_gym_data(data_dir='src/zootransform/dataset/ProteinGym_DMS_data/DMS_Prot
         
         print(f"✓ Loaded {len(dfs)} files with {len(data):,} total rows")
     return data[['DMS_score', 'mutated_sequence', 'protein', 'species']]
-
-data = get_gym_data()
-data.head()
 
 # def clean_gym_data(data: pd.DataFrame):
 #     # Make column names consistent and easier to work with
