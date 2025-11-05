@@ -15,6 +15,12 @@ from tqdm.auto import tqdm
 class LoraFinetuner:
     """
     Fine-tune species-aware ESM2 using LoRA, optionally aligning to frozen embeddings.
+    Args:
+        base_model: an initialized SpeciesAwareESM2 object
+        r, alpha, dropout: LoRA hyperparameters (default r=8, alpha=16, dropout=0.05)
+        target_modules: list of module names (such as ["attention.self.key","attention.self.value"])
+        lr: learning rate (default 1e-4)
+        batch_size: batch size (default 4)
     """
     def __init__(self, base_model: SpeciesAwareESM2, r=8, alpha=16, dropout=0.05, target_modules=None, lr=1e-4, batch_size=4):
         self.device = base_model.device
@@ -35,7 +41,11 @@ class LoraFinetuner:
             task_type="FEATURE_EXTRACTION"
         )
         self.model = get_peft_model(base_model.model, lora_cfg).to(self.device)
-        self.optimizer = AdamW(self.model.parameters(), lr=lr)
+        # self.optimizer = AdamW(self.model.parameters(), lr=lr)
+        self.optimizer = AdamW(
+            filter(lambda p: p.requires_grad, self.model.parameters()),
+            lr=lr
+        ) # only optimize the trainable LoRA params
         self.loss_fn = nn.MSELoss()  # Align embeddings to frozen ESM2
 
     def train(self, species_batch, sequence_batch, frozen_embeddings=None, epochs=3):
@@ -50,10 +60,12 @@ class LoraFinetuner:
         self.model.train()
         for epoch in range(epochs):
             total_loss = 0
-            for batch in tqdm(loader, desc=f"Epoch {epoch+1}/{epochs}"):
+
+            pbar = tqdm(loader, desc=f"Epoch {epoch+1}/{epochs}")
+            for batch in pbar: #TODO - labels would be added in supervised case
                 batch = {k: v.to(self.device) for k,v in batch.items()}
                 outputs = self.model(**batch)
-                embeddings = outputs.last_hidden_state.mean(dim=1)
+                embeddings = outputs.last_hidden_state.mean(dim=1) # mean pooling
 
                 # Optional: align to frozen embeddings
                 if frozen_embeddings is not None:
@@ -61,13 +73,16 @@ class LoraFinetuner:
                     loss = self.loss_fn(embeddings, target_batch)
                     frozen_embeddings = frozen_embeddings[embeddings.size(0):]  # move window
                 else:
-                    # Self-supervised: just use MLM if you prefer
-                    loss = embeddings.norm()  # dummy placeholder if no target
+                    # Self-supervised
+                    loss = embeddings.norm()  #TODO - placeholder for self-supervised loss
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
+
                 total_loss += loss.item()
+                pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+
             avg_loss = total_loss / len(loader)
             print(f"Epoch {epoch+1} — avg loss: {avg_loss:.4f}")
 
@@ -90,6 +105,15 @@ class LoraFinetuner:
         return torch.cat(all_embeddings, dim=0).cpu()
 
 class ProteinDataset(Dataset):
+    """
+    Dataset for species-aware protein sequences.
+    Args:
+        species_batch: list of species identifiers
+        sequence_batch: list of protein sequences
+        tokenizer: tokenizer for the model
+        max_length: maximum sequence length (default 1024)
+    """
+
     def __init__(self, species_batch, sequence_batch, tokenizer, max_length=1024):
         self.species_batch = species_batch
         self.sequence_batch = sequence_batch
@@ -101,7 +125,13 @@ class ProteinDataset(Dataset):
 
     def __getitem__(self, idx):
         text = f"{self.species_batch[idx]} {self.sequence_batch[idx]}"
-        enc = self.tokenizer(text, truncation=True, padding='max_length', max_length=self.max_length, return_tensors="pt")
+        enc = self.tokenizer(
+            text,
+            truncation=True,
+            padding='max_length',
+            max_length=self.max_length,
+            return_tensors="pt")
+
         return {k: v.squeeze(0) for k,v in enc.items()}
 
 # class LoraESMFinetuner:
