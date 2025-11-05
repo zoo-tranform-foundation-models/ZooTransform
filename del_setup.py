@@ -1,0 +1,26 @@
+# from setuptools import setup, find_packages
+
+# setup(
+#     name="zootransform",
+#     version="0.1.0",
+#     description="Foundation model for species-specific biological data.",
+#     long_description=open("README.md").read(),
+#     long_description_content_type="text/markdown",
+#     packages=find_packages(where='src'),  # Find packages within the 'src' directory
+#     package_dir={'': 'src'},  # Map the root package to the 'src' directory
+#     install_requires=[
+#         "numpy",
+#         "pandas",
+#     ],
+#     classifiers=[
+#         "Programming Language :: Python :: 3",
+#         "License :: OSI Approved :: MIT License",
+#         "Operating System :: OS Independent",
+#     ],
+#     python_requires=">=3.8",
+# )
+
+from setuptools import setup
+
+if __name__ == "__main__":
+    setup()

@@ -27,6 +27,7 @@ plt.rcParams['figure.dpi'] = 100
 
 print("✓ All libraries imported successfully!")
 
+
 class SpeciesAwareESM2:
     """
     Wrapper around ESM2 model to handle species-specific tokens.
@@ -53,14 +54,15 @@ class SpeciesAwareESM2:
 
     """
 
-
     def __init__(self, model_name="facebook/esm2_t6_8M_UR50D", device=None, species_list=None, max_length=1024):
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or (
+            "cuda" if torch.cuda.is_available() else "cpu")
 
         print(f"Using device: {self.device}")
         if torch.cuda.is_available():
             print(f"  GPU: {torch.cuda.get_device_name(0)}")
-            print(f"  Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
+            print(
+                f"  Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
 
         self.model_name = model_name
         self.max_length = max_length
@@ -72,14 +74,26 @@ class SpeciesAwareESM2:
 
         # Default species tokens if not provided
         if species_list is None:
-            species_list = ["human", "mouse", "ecoli"] #TODO - expand this list as needed
+            species_list = ['Arabidopsis thaliana',
+                            'Bos taurus',
+                            'Escherichia coli',
+                            'Homo sapiens',
+                            'Mus musculus',
+                            'Oryza sativa',
+                            'Rattus norvegicus',
+                            'Rhodotorula toruloides',
+                            'Saccharolobus solfataricus',
+                            'Saccharomyces cerevisiae',
+                            'Schizosaccharomyces pombe',
+                            'Staphylococcus aureus']
 
-
-        self.species_tokens = [f"<sp_{s}>" for s in species_list] #e.g. "<sp_human>", "<sp_mouse>", "<sp_ecoli>"
+        # e.g. "<sp_human>", "<sp_mouse>", "<sp_ecoli>"
+        self.species_tokens = [f"<sp_{s}>" for s in species_list]
         print(f"Adding species tokens: {self.species_tokens}")
 
         # Add as special tokens
-        num_added = self.tokenizer.add_special_tokens({"additional_special_tokens": self.species_tokens})
+        num_added = self.tokenizer.add_special_tokens(
+            {"additional_special_tokens": self.species_tokens})
         print(f"Added {num_added} new special tokens")
 
         # Resize embeddings if tokens were added
@@ -101,14 +115,14 @@ class SpeciesAwareESM2:
         print(f"  Hidden size: {self.model.config.hidden_size}")
         print(f"  Number of layers: {self.model.config.num_hidden_layers}")
 
-
     def prepare_inputs(self, species, sequence):
         """
         Prepend the species token to the sequence and tokenize it.
         """
         # check that species is valid
         if species not in self.species_to_token:
-            raise ValueError(f"Unknown species '{species}'. Valid options: {list(self.species_to_token.keys())}")
+            raise ValueError(
+                f"Unknown species '{species}'. Valid options: {list(self.species_to_token.keys())}")
 
         species_token = self.species_to_token[species]
         input_text = species_token + " " + sequence
@@ -157,8 +171,10 @@ class SpeciesAwareESM2:
         vocab = self.tokenizer.get_vocab()
 
         # Separate special tokens from amino acid tokens
-        special_tokens = {k: v for k, v in vocab.items() if '<' in k or '|' in k}
-        amino_acid_tokens = {k: v for k, v in vocab.items() if k not in special_tokens and len(k) == 1}
+        special_tokens = {k: v for k,
+                          v in vocab.items() if '<' in k or '|' in k}
+        amino_acid_tokens = {k: v for k, v in vocab.items(
+        ) if k not in special_tokens and len(k) == 1}
 
         fig, (ax2) = plt.subplots(1, 1, figsize=(14, 5))
         special_names = list(special_tokens.keys())
@@ -177,7 +193,8 @@ class SpeciesAwareESM2:
         plt.show()
 
         print("\nToken Types:")
-        print(f"  Amino acids: {len(amino_acid_tokens)} tokens (standard 20 + variants)")
+        print(
+            f"  Amino acids: {len(amino_acid_tokens)} tokens (standard 20 + variants)")
         print(f"  Special tokens: {len(special_tokens)} tokens")
         print(f"  Total vocabulary: {len(vocab)} tokens")
 
