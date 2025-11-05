@@ -68,8 +68,8 @@ class SpeciesAwareESM2:
         self.max_length = max_length
 
         print(f"Loading model: {model_name}")
-        self.model = AutoModel.from_pretrained(model_name).to(self.device)
-        # self.model = AutoModelForMaskedLM.from_pretrained(model_name).to(self.device)
+        # self.model = AutoModel.from_pretrained(model_name).to(self.device)
+        self.model = AutoModelForMaskedLM.from_pretrained(model_name).to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
         # Default species tokens if not provided
@@ -98,8 +98,15 @@ class SpeciesAwareESM2:
 
         # Resize embeddings if tokens were added
         if num_added > 0:
-            self.model.resize_token_embeddings(len(self.tokenizer))
+            self.model.resize_token_embeddings(len(self.tokenizer), mean_resizing=True)
             print(f"Resized model embeddings to {len(self.tokenizer)} tokens")
+
+            # Ensure lm_head bias is also resized
+            if hasattr(self.model, "lm_head") and self.model.lm_head.bias is not None:
+                old_bias = self.model.lm_head.bias.data
+                new_bias = torch.zeros(self.model.config.vocab_size, device=old_bias.device)
+                new_bias[:old_bias.size(0)] = old_bias
+                self.model.lm_head.bias = torch.nn.Parameter(new_bias)
 
         # Mapping from species name to token
         self.species_to_token = {s: f"<sp_{s}>" for s in species_list}

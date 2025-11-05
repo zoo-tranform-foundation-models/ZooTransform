@@ -1,6 +1,7 @@
 from typing import List
 
 import numpy as np
+import pandas as pd
 import torch
 from torch import nn
 from torch.optim import AdamW
@@ -181,7 +182,7 @@ class LoraFinetunerMLM:
             target_modules=target_modules,
             lora_dropout=dropout,
             bias="none",
-            task_type="FEATURE_EXTRACTION"
+            task_type="FEATURE_EXTRACTION" #TODO - specify MLM task type
         )
         self.model = get_peft_model(base_model.model, lora_cfg).to(self.device)
 
@@ -220,7 +221,8 @@ class LoraFinetunerMLM:
                 labels = batch['labels'].to(self.device)
 
                 outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
-                logits = outputs.last_hidden_state  # shape: [batch, seq_len, vocab_size]
+                #logits = outputs.last_hidden_state  # shape: [batch, seq_len, vocab_size]
+                logits = outputs.logits  # shape: [batch, seq_len, vocab_size]
 
                 # MLM loss expects [batch*seq_len, vocab_size] and labels [batch*seq_len]
                 loss = self.loss_fn(
@@ -239,9 +241,28 @@ class LoraFinetunerMLM:
             print(f"Epoch {epoch + 1} — avg loss: {avg_loss:.4f}")
 
     @torch.no_grad()
+    # def embed(self, species_batch: List[str], sequence_batch: List[str]):
+    #     """
+    #     Compute embeddings (mean-pooled) for sequences without masking
+    #     """
+    #     self.model.eval()
+    #     dataset = ProteinDataset(species_batch, sequence_batch, tokenizer=self.tokenizer,
+    #                              max_length=self.max_length)
+    #     loader = DataLoader(dataset, batch_size=self.batch_size)
+    #
+    #     all_embeddings = []
+    #     for batch in loader:
+    #         batch = {k: v.to(self.device) for k, v in batch.items()}
+    #         outputs = self.model(**batch)
+    #         embeddings = outputs.last_hidden_state.mean(dim=1)
+    #         all_embeddings.append(embeddings)
+    #
+    #     return torch.cat(all_embeddings, dim=0).cpu()
+    @torch.no_grad()
     def embed(self, species_batch: List[str], sequence_batch: List[str]):
         """
-        Compute embeddings (mean-pooled) for sequences without masking
+        Compute embeddings (mean-pooled) for sequences without masking.
+        Works with MLM models by using hidden states.
         """
         self.model.eval()
         dataset = ProteinDataset(species_batch, sequence_batch, tokenizer=self.tokenizer,
@@ -251,8 +272,65 @@ class LoraFinetunerMLM:
         all_embeddings = []
         for batch in loader:
             batch = {k: v.to(self.device) for k, v in batch.items()}
-            outputs = self.model(**batch)
-            embeddings = outputs.last_hidden_state.mean(dim=1)
+
+            # Request hidden states
+            outputs = self.model(**batch, output_hidden_states=True)
+
+            # Last hidden layer embeddings
+            last_hidden = outputs.hidden_states[-1]  # shape: [batch, seq_len, hidden_dim]
+
+            # Mean pooling over sequence length
+            embeddings = last_hidden.mean(dim=1)
             all_embeddings.append(embeddings)
 
         return torch.cat(all_embeddings, dim=0).cpu()
+
+
+if __name__ == "__main__":
+    data = pd.DataFrame({
+        "species": ["human", "mouse", "ecoli", "human", "mouse", "ecoli", "human", "mouse", "ecoli"],
+        "sequence": [
+            "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ",
+            "MKVSAIAKQRQISFVKSHFSRQLRERLGLIEVQ",
+            "MKTVYIAKQRQISFVKSHFSRQLEERLGLIEVQ",
+            "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ",
+            "MKVSAIAKQRQISFVKSHFSRQLRERLGLIEVQ",
+            "MKTVYIAKQRQISFVKSHFSRQLEERLGLIEVQ",
+            "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ",
+            "MKVSAIAKQRQISFVKSHFSRQLRERLGLIEVQ",
+            "MKTVYIAKQRQISFVKSHFSRQLEERLGLIEVQ"
+        ]
+    })
+
+    from src.fine_tuning.fine_tuning import LoraFinetunerMLM  # new MLM version
+    from src.model.species_model import SpeciesAwareESM2
+    import torch
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Species-aware model
+    species_model = SpeciesAwareESM2(species_list=["human", "mouse", "ecoli"])
+    species_model.model.to(device)
+
+    species_batch = data["species"].tolist()
+    sequence_batch = data["sequence"].tolist()
+
+    finetuner = LoraFinetunerMLM(
+        base_model=species_model,
+        r=8,
+        alpha=16,
+        dropout=0.05,
+        target_modules=["attention.self.key", "attention.self.value"],  # LoRA targets
+        lr=1e-4,
+        batch_size=4,
+        mlm_probability=0.15  # fraction of tokens to mask
+    )
+
+    finetuner.train(
+        species_batch=species_batch,
+        sequence_batch=sequence_batch,
+        epochs=5
+    )
+
+    tuned_embeddings = finetuner.embed(species_batch, sequence_batch)
+    print("Tuned embeddings shape:", tuned_embeddings.shape)
