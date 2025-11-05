@@ -224,7 +224,15 @@ class SpeciesAwareESM2:
         embeddings = []
 
         for _ in range(n_mc_draws):
-            emb = self.model.embed(species, sequences)
+            # emb = self.model.embed(species, sequences)
+            with torch.no_grad():
+                # outputs = self.model(**inputs, output_hidden_states=True)
+                outputs = self.model(species, sequences, output_hidden_states=True)
+            token_embeddings = outputs.hidden_states[-1].squeeze(0)      # (seq_len, hidden_dim)
+            # mean pool excluding special tokens ([CLS] and [EOS])
+            emb = token_embeddings[1:-1].mean(dim=0)              # (hidden_dim,)
+
+                
             emb_mean = emb.mean(dim=1).cpu().numpy()
             embeddings.append(emb_mean)
 
