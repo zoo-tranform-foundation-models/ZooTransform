@@ -34,11 +34,15 @@ class LoraESMFinetuner:
         self.tokenizer = base_model.tokenizer
         self.max_length = base_model.max_length
         self.batch_size = batch_size
-        self.mlm_probability = mlm_probability
+        # self.mlm_probability = mlm_probability
 
         # ---- Wrap model with LoRA ----
         if target_modules is None:
             target_modules = ["attention.self.key", "attention.self.value"]
+
+        # Freeze base model
+        for param in base_model.model.parameters():
+            param.requires_grad = False
 
         lora_cfg = LoraConfig(
             r=r,
@@ -51,61 +55,66 @@ class LoraESMFinetuner:
         self.model = get_peft_model(base_model.model, lora_cfg).to(self.device)
 
         self.optimizer = AdamW(self.model.parameters(), lr=lr)
-        self.data_collator = DataCollatorForLanguageModeling(
-            tokenizer=self.tokenizer, mlm=True, mlm_probability=self.mlm_probability
-        )
+        self.mse_loss = nn.MSELoss()
+        # self.data_collator = DataCollatorForLanguageModeling(
+        #     tokenizer=self.tokenizer, mlm=True, mlm_probability=self.mlm_probability
+        # )
         print(f"LoRA finetuner ready on {self.device}")
 
-    def _make_dataset(self, species_batch, sequence_batch):
-        """Tokenize data and build a torch Dataset."""
-
+    def _make_dataset(self, species_batch, sequence_batch, teacher_embeddings):
         texts = [f"<sp_{s}> {seq}" for s, seq in zip(species_batch, sequence_batch)]
         encodings = self.tokenizer(
-            texts, truncation=True, padding=True, max_length=self.max_length
+            texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=self.max_length
         )
+        teacher_embeddings = torch.tensor(teacher_embeddings, dtype=torch.float32)
 
         class _ProteinDataset(Dataset):
-            def __init__(self, encodings):
+            def __init__(self, encodings, teacher_emb):
                 self.encodings = encodings
+                self.teacher_emb = teacher_emb
             def __len__(self):
-                return len(self.encodings["input_ids"])
+                return self.teacher_emb.shape[0]
             def __getitem__(self, idx): #override method to get item at index idx
-                return {k: torch.tensor(v[idx]) for k, v in self.encodings.items()}
+                return {k: v[idx] for k, v in self.encodings.items()}, self.teacher_emb[idx]
 
-        return _ProteinDataset(encodings)
+        return _ProteinDataset(encodings, teacher_embeddings)
 
-    def train(self, species_batch, sequence_batch, epochs=3):
-        """Main fine-tuning loop."""
-        dataset = self._make_dataset(species_batch, sequence_batch)
-        loader = DataLoader(
-            dataset, batch_size=self.batch_size,
-            shuffle=True, collate_fn=self.data_collator
-        )
+    def train(self, species_batch, sequence_batch, teacher_embeddings, epochs=3):
+        dataset = self._make_dataset(species_batch, sequence_batch, teacher_embeddings)
+        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
         for epoch in range(epochs):
             self.model.train()
             total_loss = 0
-            for batch in tqdm(loader, desc=f"Epoch {epoch+1}/{epochs}"):
-                batch = {k: v.to(self.device) for k, v in batch.items()}
-                outputs = self.model(**batch)
-                loss = outputs.loss
+            for batch_inputs, teacher_emb in tqdm(loader, desc=f"Epoch {epoch+1}/{epochs}"):
+                batch_inputs = {k: v.to(self.device) for k, v in batch_inputs.items()}
+                teacher_emb = teacher_emb.to(self.device)
+
+                outputs = self.model(**batch_inputs)
+                seq_emb = outputs.last_hidden_state[:, 1:teacher_emb.shape[1]+1, :]  # skip species token
+                loss = self.mse_loss(seq_emb, teacher_emb)
+
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
                 total_loss += loss.item()
-            avg_loss = total_loss / len(loader)
-            print(f"Epoch {epoch+1} completed — avg MLM loss: {avg_loss:.4f}")
+
+            print(f"Epoch {epoch+1} completed — avg distillation loss: {total_loss/len(loader):.4f}")
 
     @torch.no_grad()
     def embed(self, species_batch, sequence_batch):
-        """Return mean embeddings from the fine-tuned LoRA model."""
         self.model.eval()
         texts = [f"<sp_{s}> {seq}" for s, seq in zip(species_batch, sequence_batch)]
-        tokenized = self.tokenizer(
-            texts, return_tensors="pt", padding=True, truncation=True,
+        inputs = self.tokenizer(
+            texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
             max_length=self.max_length
         ).to(self.device)
-
-        outputs = self.model(**tokenized)
-        embeddings = outputs.last_hidden_state.mean(dim=1)
-        return embeddings.cpu().numpy()
+        outputs = self.model(**inputs)
+        return outputs.last_hidden_state.mean(dim=1).cpu().numpy()
