@@ -29,6 +29,7 @@ class LoraESMFinetuner:
             batch_size: batch size
             mlm_probability: fraction of tokens to mask
         """
+
         self.device = base_model.device
         self.tokenizer = base_model.tokenizer
         self.max_length = base_model.max_length
@@ -37,7 +38,7 @@ class LoraESMFinetuner:
 
         # ---- Wrap model with LoRA ----
         if target_modules is None:
-            target_modules = ["q_proj", "v_proj"]
+            target_modules=["attention.self.key", "attention.self.value"]
 
         lora_cfg = LoraConfig(
             r=r,
