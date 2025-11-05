@@ -72,7 +72,7 @@ class SpeciesAwareESM2:
 
         # Default species tokens if not provided
         if species_list is None:
-            species_list = ["human", "mouse", "ecoli"]
+            species_list = ["human", "mouse", "ecoli"] #TODO - expand this list as needed
 
 
         self.species_tokens = [f"<sp_{s}>" for s in species_list] #e.g. "<sp_human>", "<sp_mouse>", "<sp_ecoli>"
@@ -93,30 +93,6 @@ class SpeciesAwareESM2:
         print("✓ Model and tokenizer ready!")
         print(f"  Hidden size: {self.model.config.hidden_size}")
         print(f"  Number of layers: {self.model.config.num_hidden_layers}")
-
-    # def prepare_inputs(self, species_batch, sequence_batch):
-    #     """
-    #     Prepend species tokens and tokenize.
-    #     """
-    #     texts = [f"{self.species_to_token[s]} {seq}" for s, seq in zip(species_batch, sequence_batch)]
-    #     tokens = self.tokenizer(
-    #         texts,
-    #         return_tensors="pt",
-    #         padding=True,
-    #         truncation=True,
-    #         max_length=self.max_length
-    #     )
-    #     tokens = {k: v.to(self.device) for k, v in tokens.items()}
-    #     return tokens
-    #
-    # @torch.no_grad()
-    # def embed(self, species_batch, sequence_batch):
-    #     """
-    #     Return mean embeddings from last hidden state.
-    #     """
-    #     tokens = self.prepare_inputs(species_batch, sequence_batch)
-    #     outputs = self.model(**tokens)
-    #     return outputs.last_hidden_state.mean(dim=1)
 
 
     def prepare_inputs(self, species, sequence):
@@ -157,7 +133,7 @@ class SpeciesAwareESM2:
         sequence_batch: list of sequences
         """
         texts = [
-            self.species_to_token[s] + " " + seq
+            self.species_to_token[s] + seq
             for s, seq in zip(species_batch, sequence_batch)
         ]
         tokens = self.tokenizer(
@@ -209,3 +185,37 @@ class SpeciesAwareESM2:
             }
             desc = descriptions.get(name, 'Special token')
             print(f"  {name:8s} (ID {token_id:2d}): {desc}")
+
+    @torch.no_grad()
+    def embed_with_uncertainty(self, species, sequences, n_mc_draws=20):
+        """
+        Monte Carlo dropout uncertainty estimation.
+        Returns mean embedding and uncertainty estimate.
+
+        Inputs:
+        - species: species names
+        - sequences: protein sequences
+        """
+        self.model.train()  # keep dropout active!
+        embeddings = []
+
+        for _ in range(n_mc_draws):
+            emb = self.model.embed(species, sequences)
+            emb_mean = emb.mean(dim=1).cpu().numpy()
+            embeddings.append(emb_mean)
+
+        embeddings = np.stack(embeddings, axis=0)
+        mean_embedding = embeddings.mean(axis=0)
+        uncertainty = embeddings.std(axis=0).mean()
+
+        return mean_embedding, uncertainty
+
+    # def check_stability(self):
+    #     mean_unc = []
+    #     for n in [5, 10, 20, 50, 100]:
+    #         _, unc = self.embed_with_uncertainty(species, sequences, n_samples=n)
+    #         mean_unc.append(unc)
+    #     plt.plot([5, 10, 20, 50, 100], mean_unc, marker='o')
+    #     plt.xlabel("Number of MC samples")
+    #     plt.ylabel("Estimated uncertainty")
+    #     plt.show()
