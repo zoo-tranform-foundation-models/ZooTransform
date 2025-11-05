@@ -3,7 +3,7 @@ import os
 import glob
 import pandas as pd
 
-def download_gym_data(download_path: str = "../ProteinGym_DMS_data", download: bool = True, approved_ids: list = []):
+def download_gym_data(download_path: str = "src/dataset/ProteinGym_DMS_data", download: bool = True, approved_ids: list = []):
     """
     Download and extract ProteinGym DMS substitution dataset.
     Please uncomment and run the download commands if data is not present.
