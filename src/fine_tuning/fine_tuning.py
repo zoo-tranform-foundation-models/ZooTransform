@@ -57,10 +57,11 @@ class LoraFinetuner:
         )
         loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
-        #self.model.train()
+        total_loss = float("inf")
+
         for epoch in range(epochs):
             self.model.train()
-            epoch_loss = 0
+            epoch_loss = 0.0
 
             pbar = tqdm(loader, desc=f"Epoch {epoch+1}/{epochs}")
             for batch in pbar: #TODO - labels would be added in supervised case
@@ -69,13 +70,14 @@ class LoraFinetuner:
                 embeddings = outputs.last_hidden_state.mean(dim=1) # mean pooling
 
                 # Optional: align to frozen embeddings
-                if frozen_embeddings is not None:
+                if frozen_embeddings is not None and len(frozen_embeddings) >= embeddings.size(0):
                     target_batch = frozen_embeddings[:embeddings.size(0)].to(self.device)
                     loss = self.loss_fn(embeddings, target_batch)
                     frozen_embeddings = frozen_embeddings[embeddings.size(0):]  # move window
                 else:
                     # Self-supervised
-                    loss = embeddings.norm()  #TODO - placeholder for self-supervised loss
+                    # loss = embeddings.norm()  #TODO - placeholder for self-supervised loss
+                    loss = (embeddings ** 2).mean()
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -84,11 +86,15 @@ class LoraFinetuner:
                 epoch_loss += loss.item()
                 pbar.set_postfix({"loss": f"{loss.item():.4f}"})
 
-            avg_loss = epoch_loss / len(loader)
+            if len(loader) > 0:
+                avg_loss = epoch_loss / len(loader)
+            else:
+                avg_loss = float("nan")
+
             total_loss = avg_loss
             print(f"Epoch {epoch+1} — avg loss: {avg_loss:.4f}")
 
-        return total_loss
+        return float(total_loss)
 
     @torch.no_grad()
     def embed(self, species_batch, sequence_batch):
