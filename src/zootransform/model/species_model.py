@@ -27,6 +27,7 @@ plt.rcParams['figure.dpi'] = 100
 
 print("✓ All libraries imported successfully!")
 
+
 class SpeciesAwareESM2:
     """
     Wrapper around ESM2 model to handle species-specific tokens.
@@ -53,39 +54,59 @@ class SpeciesAwareESM2:
 
     """
 
-
     def __init__(self, model_name="facebook/esm2_t6_8M_UR50D", device=None, species_list=None, max_length=1024):
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device or (
+            "cuda" if torch.cuda.is_available() else "cpu")
 
         print(f"Using device: {self.device}")
         if torch.cuda.is_available():
             print(f"  GPU: {torch.cuda.get_device_name(0)}")
-            print(f"  Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
+            print(
+                f"  Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
 
         self.model_name = model_name
         self.max_length = max_length
 
         print(f"Loading model: {model_name}")
-        self.model = AutoModel.from_pretrained(model_name).to(self.device)
-        # self.model = AutoModelForMaskedLM.from_pretrained(model_name).to(self.device)
+        # self.model = AutoModel.from_pretrained(model_name).to(self.device)
+        self.model = AutoModelForMaskedLM.from_pretrained(model_name).to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
         # Default species tokens if not provided
         if species_list is None:
-            species_list = ["human", "mouse", "ecoli"]
+            species_list = ['Arabidopsis thaliana',
+                            'Bos taurus',
+                            'Escherichia coli',
+                            'Homo sapiens',
+                            'Mus musculus',
+                            'Oryza sativa',
+                            'Rattus norvegicus',
+                            'Rhodotorula toruloides',
+                            'Saccharolobus solfataricus',
+                            'Saccharomyces cerevisiae',
+                            'Schizosaccharomyces pombe',
+                            'Staphylococcus aureus']
 
-
-        self.species_tokens = [f"<sp_{s}>" for s in species_list] #e.g. "<sp_human>", "<sp_mouse>", "<sp_ecoli>"
+        # e.g. "<sp_human>", "<sp_mouse>", "<sp_ecoli>"
+        self.species_tokens = [f"<sp_{s}>" for s in species_list]
         print(f"Adding species tokens: {self.species_tokens}")
 
         # Add as special tokens
-        num_added = self.tokenizer.add_special_tokens({"additional_special_tokens": self.species_tokens})
+        num_added = self.tokenizer.add_special_tokens(
+            {"additional_special_tokens": self.species_tokens})
         print(f"Added {num_added} new special tokens")
 
         # Resize embeddings if tokens were added
         if num_added > 0:
-            self.model.resize_token_embeddings(len(self.tokenizer))
+            self.model.resize_token_embeddings(len(self.tokenizer), mean_resizing=True)
             print(f"Resized model embeddings to {len(self.tokenizer)} tokens")
+
+            # Ensure lm_head bias is also resized
+            if hasattr(self.model, "lm_head") and self.model.lm_head.bias is not None:
+                old_bias = self.model.lm_head.bias.data
+                new_bias = torch.zeros(self.model.config.vocab_size, device=old_bias.device)
+                new_bias[:old_bias.size(0)] = old_bias
+                self.model.lm_head.bias = torch.nn.Parameter(new_bias)
 
         # Mapping from species name to token
         self.species_to_token = {s: f"<sp_{s}>" for s in species_list}
@@ -94,41 +115,17 @@ class SpeciesAwareESM2:
         print(f"  Hidden size: {self.model.config.hidden_size}")
         print(f"  Number of layers: {self.model.config.num_hidden_layers}")
 
-    # def prepare_inputs(self, species_batch, sequence_batch):
-    #     """
-    #     Prepend species tokens and tokenize.
-    #     """
-    #     texts = [f"{self.species_to_token[s]} {seq}" for s, seq in zip(species_batch, sequence_batch)]
-    #     tokens = self.tokenizer(
-    #         texts,
-    #         return_tensors="pt",
-    #         padding=True,
-    #         truncation=True,
-    #         max_length=self.max_length
-    #     )
-    #     tokens = {k: v.to(self.device) for k, v in tokens.items()}
-    #     return tokens
-    #
-    # @torch.no_grad()
-    # def embed(self, species_batch, sequence_batch):
-    #     """
-    #     Return mean embeddings from last hidden state.
-    #     """
-    #     tokens = self.prepare_inputs(species_batch, sequence_batch)
-    #     outputs = self.model(**tokens)
-    #     return outputs.last_hidden_state.mean(dim=1)
-
-
     def prepare_inputs(self, species, sequence):
         """
         Prepend the species token to the sequence and tokenize it.
         """
         # check that species is valid
         if species not in self.species_to_token:
-            raise ValueError(f"Unknown species '{species}'. Valid options: {list(self.species_to_token.keys())}")
+            raise ValueError(
+                f"Unknown species '{species}'. Valid options: {list(self.species_to_token.keys())}")
 
         species_token = self.species_to_token[species]
-        input_text = species_token + " " + sequence
+        input_text = species_token + sequence
 
         tokens = self.tokenizer(
             input_text,
@@ -157,7 +154,7 @@ class SpeciesAwareESM2:
         sequence_batch: list of sequences
         """
         texts = [
-            self.species_to_token[s] + " " + seq
+            self.species_to_token[s] + seq
             for s, seq in zip(species_batch, sequence_batch)
         ]
         tokens = self.tokenizer(
@@ -174,8 +171,10 @@ class SpeciesAwareESM2:
         vocab = self.tokenizer.get_vocab()
 
         # Separate special tokens from amino acid tokens
-        special_tokens = {k: v for k, v in vocab.items() if '<' in k or '|' in k}
-        amino_acid_tokens = {k: v for k, v in vocab.items() if k not in special_tokens and len(k) == 1}
+        special_tokens = {k: v for k,
+                          v in vocab.items() if '<' in k or '|' in k}
+        amino_acid_tokens = {k: v for k, v in vocab.items(
+        ) if k not in special_tokens and len(k) == 1}
 
         fig, (ax2) = plt.subplots(1, 1, figsize=(14, 5))
         special_names = list(special_tokens.keys())
@@ -194,7 +193,8 @@ class SpeciesAwareESM2:
         plt.show()
 
         print("\nToken Types:")
-        print(f"  Amino acids: {len(amino_acid_tokens)} tokens (standard 20 + variants)")
+        print(
+            f"  Amino acids: {len(amino_acid_tokens)} tokens (standard 20 + variants)")
         print(f"  Special tokens: {len(special_tokens)} tokens")
         print(f"  Total vocabulary: {len(vocab)} tokens")
 
@@ -209,3 +209,37 @@ class SpeciesAwareESM2:
             }
             desc = descriptions.get(name, 'Special token')
             print(f"  {name:8s} (ID {token_id:2d}): {desc}")
+
+    @torch.no_grad()
+    def embed_with_uncertainty(self, species, sequences, n_mc_draws=20):
+        """
+        Monte Carlo dropout uncertainty estimation.
+        Returns mean embedding and uncertainty estimate.
+
+        Inputs:
+        - species: species names
+        - sequences: protein sequences
+        """
+        self.model.train()  # keep dropout active!
+        embeddings = []
+
+        for _ in range(n_mc_draws):
+            emb = self.model.embed(species, sequences)
+            emb_mean = emb.mean(dim=1).cpu().numpy()
+            embeddings.append(emb_mean)
+
+        embeddings = np.stack(embeddings, axis=0)
+        mean_embedding = embeddings.mean(axis=0)
+        uncertainty = embeddings.std(axis=0).mean()
+
+        return mean_embedding, uncertainty
+
+    # def check_stability(self):
+    #     mean_unc = []
+    #     for n in [5, 10, 20, 50, 100]:
+    #         _, unc = self.embed_with_uncertainty(species, sequences, n_samples=n)
+    #         mean_unc.append(unc)
+    #     plt.plot([5, 10, 20, 50, 100], mean_unc, marker='o')
+    #     plt.xlabel("Number of MC samples")
+    #     plt.ylabel("Estimated uncertainty")
+    #     plt.show()
