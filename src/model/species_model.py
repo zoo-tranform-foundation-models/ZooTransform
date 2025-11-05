@@ -94,81 +94,81 @@ class SpeciesAwareESM2:
         print(f"  Hidden size: {self.model.config.hidden_size}")
         print(f"  Number of layers: {self.model.config.num_hidden_layers}")
 
-    def prepare_inputs(self, species_batch, sequence_batch):
-        """
-        Prepend species tokens and tokenize.
-        """
-        texts = [f"{self.species_to_token[s]} {seq}" for s, seq in zip(species_batch, sequence_batch)]
-        tokens = self.tokenizer(
-            texts,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=self.max_length
-        )
-        tokens = {k: v.to(self.device) for k, v in tokens.items()}
-        return tokens
-
-    @torch.no_grad()
-    def embed(self, species_batch, sequence_batch):
-        """
-        Return mean embeddings from last hidden state.
-        """
-        tokens = self.prepare_inputs(species_batch, sequence_batch)
-        outputs = self.model(**tokens)
-        return outputs.last_hidden_state.mean(dim=1)
-
-
-    # def prepare_inputs(self, species, sequence):
+    # def prepare_inputs(self, species_batch, sequence_batch):
     #     """
-    #     Prepend the species token to the sequence and tokenize it.
+    #     Prepend species tokens and tokenize.
     #     """
-    #     # check that species is valid
-    #     if species not in self.species_to_token:
-    #         raise ValueError(f"Unknown species '{species}'. Valid options: {list(self.species_to_token.keys())}")
-    #
-    #     species_token = self.species_to_token[species]
-    #     input_text = species_token + " " + sequence
-    #
-    #     tokens = self.tokenizer(
-    #         input_text,
-    #         return_tensors="pt",
-    #         padding=True,
-    #         truncation=True,
-    #         max_length=self.max_length,
-    #     ).to(self.device)
-    #
-    #     return tokens
-    #
-    # @torch.no_grad()
-    # def embed(self, species, sequence):
-    #     """
-    #     Generate embeddings for a given (species, sequence) pair.
-    #     Returns the last hidden state from the model.
-    #     """
-    #     inputs = self.prepare_inputs(species, sequence)
-    #     outputs = self.model(**inputs)
-    #     return outputs.last_hidden_state  # (batch, seq_len, hidden_dim)
-    #
-    # def forward(self, species_batch, sequence_batch):
-    #     """
-    #     Forward pass for a batch of (species, sequence) pairs.
-    #     species_batch: list of species names
-    #     sequence_batch: list of sequences
-    #     """
-    #     texts = [
-    #         self.species_to_token[s] + " " + seq
-    #         for s, seq in zip(species_batch, sequence_batch)
-    #     ]
+    #     texts = [f"{self.species_to_token[s]} {seq}" for s, seq in zip(species_batch, sequence_batch)]
     #     tokens = self.tokenizer(
     #         texts,
     #         return_tensors="pt",
     #         padding=True,
     #         truncation=True,
-    #         max_length=self.max_length,
-    #     ).to(self.device)
+    #         max_length=self.max_length
+    #     )
+    #     tokens = {k: v.to(self.device) for k, v in tokens.items()}
+    #     return tokens
     #
-    #     return self.model(**tokens)
+    # @torch.no_grad()
+    # def embed(self, species_batch, sequence_batch):
+    #     """
+    #     Return mean embeddings from last hidden state.
+    #     """
+    #     tokens = self.prepare_inputs(species_batch, sequence_batch)
+    #     outputs = self.model(**tokens)
+    #     return outputs.last_hidden_state.mean(dim=1)
+
+
+    def prepare_inputs(self, species, sequence):
+        """
+        Prepend the species token to the sequence and tokenize it.
+        """
+        # check that species is valid
+        if species not in self.species_to_token:
+            raise ValueError(f"Unknown species '{species}'. Valid options: {list(self.species_to_token.keys())}")
+
+        species_token = self.species_to_token[species]
+        input_text = species_token + " " + sequence
+
+        tokens = self.tokenizer(
+            input_text,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=self.max_length,
+        ).to(self.device)
+
+        return tokens
+
+    @torch.no_grad()
+    def embed(self, species, sequence):
+        """
+        Generate embeddings for a given (species, sequence) pair.
+        Returns the last hidden state from the model.
+        """
+        inputs = self.prepare_inputs(species, sequence)
+        outputs = self.model(**inputs)
+        return outputs.last_hidden_state  # (batch, seq_len, hidden_dim)
+
+    def forward(self, species_batch, sequence_batch):
+        """
+        Forward pass for a batch of (species, sequence) pairs.
+        species_batch: list of species names
+        sequence_batch: list of sequences
+        """
+        texts = [
+            self.species_to_token[s] + " " + seq
+            for s, seq in zip(species_batch, sequence_batch)
+        ]
+        tokens = self.tokenizer(
+            texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=self.max_length,
+        ).to(self.device)
+
+        return self.model(**tokens)
 
     def visualize_special_tokens(self):
         vocab = self.tokenizer.get_vocab()
