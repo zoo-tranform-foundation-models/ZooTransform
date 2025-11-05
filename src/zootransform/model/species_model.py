@@ -125,7 +125,7 @@ class SpeciesAwareESM2:
                 f"Unknown species '{species}'. Valid options: {list(self.species_to_token.keys())}")
 
         species_token = self.species_to_token[species]
-        input_text = species_token + " " + sequence
+        input_text = species_token + sequence
 
         tokens = self.tokenizer(
             input_text,
