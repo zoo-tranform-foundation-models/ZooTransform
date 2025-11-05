@@ -57,9 +57,10 @@ class LoraFinetuner:
         )
         loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
-        self.model.train()
+        #self.model.train()
         for epoch in range(epochs):
-            total_loss = 0
+            self.model.train()
+            epoch_loss = 0
 
             pbar = tqdm(loader, desc=f"Epoch {epoch+1}/{epochs}")
             for batch in pbar: #TODO - labels would be added in supervised case
@@ -80,11 +81,14 @@ class LoraFinetuner:
                 loss.backward()
                 self.optimizer.step()
 
-                total_loss += loss.item()
+                epoch_loss += loss.item()
                 pbar.set_postfix({"loss": f"{loss.item():.4f}"})
 
-            avg_loss = total_loss / len(loader)
+            avg_loss = epoch_loss / len(loader)
+            total_loss = avg_loss
             print(f"Epoch {epoch+1} — avg loss: {avg_loss:.4f}")
+
+        return total_loss
 
     @torch.no_grad()
     def embed(self, species_batch, sequence_batch):
