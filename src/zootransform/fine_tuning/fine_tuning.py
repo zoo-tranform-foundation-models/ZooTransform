@@ -4,9 +4,7 @@ import numpy as np
 import pandas as pd
 import torch
 from torch import nn
-from torch.optim import AdamW
-from peft import LoraConfig, get_peft_model
-from src.model.species_model import SpeciesAwareESM2
+from src.zootransform.model.species_model import SpeciesAwareESM2
 
 from torch.utils.data import Dataset, DataLoader
 from transformers import DataCollatorForLanguageModeling
@@ -302,8 +300,8 @@ if __name__ == "__main__":
         ]
     })
 
-    from src.fine_tuning.fine_tuning import LoraFinetunerMLM  # new MLM version
-    from src.model.species_model import SpeciesAwareESM2
+    from src.zootransform.fine_tuning.fine_tuning import LoraFinetunerMLM  # new MLM version
+    from src.zootransform.model.species_model import SpeciesAwareESM2
     import torch
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
