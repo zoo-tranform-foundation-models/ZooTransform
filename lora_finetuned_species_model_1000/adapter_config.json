@@ -28,10 +28,10 @@
   "rank_pattern": {},
   "revision": null,
   "target_modules": [
-    "attention.self.query",
-    "attention.self.value",
     "attention.self.key",
-    "embeddings.word_embeddings"
+    "embeddings.word_embeddings",
+    "attention.self.query",
+    "attention.self.value"
   ],
   "target_parameters": null,
   "task_type": null,
