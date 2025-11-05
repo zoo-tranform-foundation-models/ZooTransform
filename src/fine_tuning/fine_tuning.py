@@ -1,4 +1,6 @@
 from typing import List
+
+import numpy as np
 import torch
 from torch import nn
 from torch.optim import AdamW
@@ -57,7 +59,8 @@ class LoraFinetuner:
         )
         loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
-        total_loss = float("inf")
+        #total_loss = float("inf")
+        epoch_losses = []
 
         for epoch in range(epochs):
             self.model.train()
@@ -75,7 +78,7 @@ class LoraFinetuner:
                     loss = self.loss_fn(embeddings, target_batch)
                     frozen_embeddings = frozen_embeddings[embeddings.size(0):]  # move window
                 else:
-                    # Self-supervised
+                    # Self-supervised / L2 regularization on embeddings
                     # loss = embeddings.norm()  #TODO - placeholder for self-supervised loss
                     loss = (embeddings ** 2).mean()
 
@@ -91,10 +94,19 @@ class LoraFinetuner:
             else:
                 avg_loss = float("nan")
 
-            total_loss = avg_loss
-            print(f"Epoch {epoch+1} — avg loss: {avg_loss:.4f}")
+            # --- Track loss ---
+            # total_loss = avg_loss
+            if not torch.isnan(torch.tensor(avg_loss)):
+                epoch_losses.append(avg_loss)
+            print(f"Epoch {epoch + 1} — avg loss: {avg_loss:.4f}")
 
-        return float(total_loss)
+        if len(epoch_losses) > 0:
+            final_loss = float(np.mean(epoch_losses))
+        else:
+            final_loss = float("inf")
+
+        print(f"Returning final average loss across epochs: {final_loss:.4f}")
+        return final_loss
 
     @torch.no_grad()
     def embed(self, species_batch, sequence_batch):
