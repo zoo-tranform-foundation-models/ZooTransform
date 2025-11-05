@@ -232,7 +232,7 @@ class SpeciesAwareESM2:
         mean_embedding = embeddings.mean(axis=0)
         uncertainty = embeddings.std(axis=0).mean()
 
-        return mean_embedding, uncertainty
+        return mean_embedding, uncertainty, embeddings
 
     # def check_stability(self):
     #     mean_unc = []
