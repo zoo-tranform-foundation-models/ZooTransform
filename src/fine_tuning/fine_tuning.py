@@ -38,7 +38,7 @@ class LoraESMFinetuner:
 
         # ---- Wrap model with LoRA ----
         if target_modules is None:
-            target_modules=["attention.self.key", "attention.self.value"]
+            target_modules = ["attention.self.key", "attention.self.value"]
 
         lora_cfg = LoraConfig(
             r=r,
