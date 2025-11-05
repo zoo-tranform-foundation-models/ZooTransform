@@ -19,21 +19,34 @@ def constrain_species_names(df, n_top=10):
     return df[df['species'].isin(names_selected)]
 
 
-def process_dataset(fn_uniprot='uniprot_data/uniprot_sprot_cleaned.tsv'):
+def process_dataset(fn_save='uniprot_data/uniprot_sprot_cleaned_selected_species.tsv', 
+                    fn_uniprot='uniprot_data/uniprot_sprot_cleaned.tsv'):
 
+    if not os.path.exists(fn_uniprot):
+        try:
+            from src.zootransform.dataset.uniprot_download_and_clean import main as download_uniprot
+            download_uniprot()
+        except ImportError:
+            raise FileNotFoundError(
+                f"File {fn_uniprot} not found. Please download the UniProt dataset first." + 
+                f"You can run the command: `python3 src/zootransform/dataset/uniprot_download_and_clean.py`")
+    
     df = pd.read_csv(fn_uniprot, sep="\t", dtype=str, na_filter=False)
+    
+    # Extract species name from protein_name column
     df['species_raw'] = df['protein_name'].apply(lambda x: x.split(
         'OS=')[-1].split(' OX=')[0].strip() if 'OS=' in x else '')
     df['species'] = df['species_raw'].apply(
         lambda x: ' '.join(x.split(' ')[:2]))
 
+    # Constrain to selected species
     df_spec = constrain_species_names(df)
     df_spec.to_csv(
-        'uniprot_data/uniprot_sprot_cleaned_selected_species.tsv', sep="\t", index=False)
+        fn_save, sep="\t", index=False)
 
 
 def load_uniprot():
     fn_selected = 'uniprot_data/uniprot_sprot_cleaned_selected_species.tsv'
     if not os.path.exists(fn_selected):
-        process_dataset()
-    return pd.read_csv('uniprot_data/uniprot_sprot_cleaned_selected_species.tsv', sep="\t", dtype=str, na_filter=False)
+        process_dataset(fn_selected)
+    return pd.read_csv(fn_selected, sep="\t", dtype=str, na_filter=False)
