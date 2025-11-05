@@ -5,7 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
 
 # Transformers and PEFT
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, AutoModelForMaskedLM
 from peft import LoraConfig, get_peft_model
 
 # Data processing and visualization
@@ -66,7 +66,8 @@ class SpeciesAwareESM2:
         self.max_length = max_length
 
         print(f"Loading model: {model_name}")
-        self.model = AutoModel.from_pretrained(model_name).to(self.device)
+        #self.model = AutoModel.from_pretrained(model_name).to(self.device)
+        self.model = AutoModelForMaskedLM.from_pretrained(model_name).to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
         # Default species tokens if not provided
