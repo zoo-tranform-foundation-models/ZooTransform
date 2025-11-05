@@ -21,6 +21,14 @@ def constrain_species_names(df, n_top=10):
 
 def process_dataset(fn_uniprot='uniprot_data/uniprot_sprot_cleaned.tsv'):
 
+    if not os.path.exists(fn_uniprot):
+        try:
+            from src.zootransform.dataset.uniprot_download_and_clean import main as download_uniprot
+            download_uniprot()
+        except ImportError:
+            raise FileNotFoundError(
+                f"File {fn_uniprot} not found. Please download the UniProt dataset first." + 
+                f"You can run the command: python3 src/zootransform/dataset/uniprot_download_and_clean.py")
     df = pd.read_csv(fn_uniprot, sep="\t", dtype=str, na_filter=False)
     df['species_raw'] = df['protein_name'].apply(lambda x: x.split(
         'OS=')[-1].split(' OX=')[0].strip() if 'OS=' in x else '')
