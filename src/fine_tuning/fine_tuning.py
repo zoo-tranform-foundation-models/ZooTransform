@@ -46,7 +46,7 @@ class LoraESMFinetuner:
             target_modules=target_modules,
             lora_dropout=dropout,
             bias="none",
-            task_type="CAUSAL_LM",  # ESM is a language model
+            task_type="FEATURE_EXTRACTION",  # ESM is a language model
         )
         self.model = get_peft_model(base_model.model, lora_cfg).to(self.device)
 
