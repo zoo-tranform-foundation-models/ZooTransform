@@ -144,8 +144,8 @@ class SpeciesAwareESM2:
         Returns the last hidden state from the model.
         """
         inputs = self.prepare_inputs(species, sequence)
-        outputs = self.model(**inputs)
-        return outputs.last_hidden_state  # (batch, seq_len, hidden_dim)
+        outputs = self.model(**inputs, output_hidden_states=True)
+        return outputs.hidden_states[-1]  # (batch, seq_len, hidden_dim)
 
     def forward(self, species_batch, sequence_batch):
         """
